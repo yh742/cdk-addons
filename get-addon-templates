@@ -171,6 +171,39 @@ def patch_ceph_storage_class(repo, file):
         f.write(content)
 
 
+def patch_cephfs_secret(repo, file):
+    source = os.path.join(repo, file)
+    with open(source) as stream:
+        manifest = yaml.load(stream)
+    manifest['data']['userID'] = "{{ user_id }}"
+    manifest['data']['userKey'] = "{{ kubernetes_key }}"
+    manifest['data']['adminID'] = "{{ admin_id }}"
+    manifest['data']['adminKey'] = "{{ admin_key }}"
+    with open(source, 'w') as yaml_file:
+        yaml.dump(manifest, yaml_file, default_flow_style=False)
+
+
+def patch_cephfs_storage_class(repo, file):
+    source = os.path.join(repo, file)
+    with open(source) as stream:
+        manifest = yaml.load(stream)
+    manifest['parameters']['monitors'] = "{{ mon_hosts }}"
+    manifest['parameters']['pool'] = "{{ pool_name }}"
+    with open(source, 'w') as yaml_file:
+        yaml.dump(manifest, yaml_file, default_flow_style=False)
+
+    # :-/ Would be nice to be able to add this template a different way
+    with open(source, "r") as f:
+        content = f.read()
+    content = content.replace("metadata:", """metadata:
+{% if default == true %}
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+{% endif %}""")
+    with open(source, "w") as f:
+        f.write(content)
+
+
 def patch_heapster_controller(repo, file):
     source = os.path.join(repo, 'cluster/addons', file)
     with open(source, "r") as f:
@@ -287,20 +320,40 @@ def get_addon_templates():
 
     with ceph_csi_repo() as repo:
         log.info("Copying ceph CSI templates to " + dest)
+        # rbd plugins
         add_addon(repo, "deploy/rbd/kubernetes/csi-rbdplugin-provisioner.yaml", dest, base='.')
         add_addon(repo, "deploy/rbd/kubernetes/csi-rbdplugin-attacher.yaml", dest, base='.')
         add_addon(repo, "deploy/rbd/kubernetes/csi-rbdplugin.yaml", dest, base='.')
+        # cephfs plugins
+        add_addon(repo, "deploy/cephfs/kubernetes/csi-cephfsplugin-provisioner.yaml", dest, base='.')
+        add_addon(repo, "deploy/cephfs/kubernetes/csi-cephfsplugin-attacher.yaml", dest, base='.')
+        add_addon(repo, "deploy/cephfs/kubernetes/csi-cephfsplugin.yaml", dest, base='.')
 
+        # rbd secret
         patch_ceph_secret(repo, "examples/rbd/secret.yaml")
         add_addon(repo, "examples/rbd/secret.yaml", os.path.join(dest, "ceph-secret.yaml"), base='.')
+        # cephfs secret
+        patch_cephfs_secret(repo, "examples/cephfs/secret.yaml")
+        add_addon(repo, "examples/cephfs/secret.yaml", os.path.join(dest, "cephfs-secret.yaml"), base='.')
 
+        # rbd storageclass
         patch_ceph_storage_class(repo, "examples/rbd/storageclass.yaml")
         add_addon(repo, "examples/rbd/storageclass.yaml", os.path.join(dest, "ceph-storageclass.yaml"), base='.')
+        # cephfs storageclass
+        patch_cephfs_storage_class(repo, "examples/cephfs/storageclass.yaml")
+        add_addon(repo, "examples/cephfs/storageclass.yaml", os.path.join(dest, "cephfs-storageclass.yaml"), base='.')
 
-        # rbac templates
+        # rbd rbac templates
         add_addon(repo, "deploy/rbd/kubernetes/csi-attacher-rbac.yaml", dest, base='.')
         add_addon(repo, "deploy/rbd/kubernetes/csi-nodeplugin-rbac.yaml", dest, base='.')
         add_addon(repo, "deploy/rbd/kubernetes/csi-provisioner-rbac.yaml", dest, base='.')
+        # cephfs rbac templates
+        add_addon(repo, "deploy/cephfs/kubernetes/csi-attacher-rbac.yaml", 
+            os.path.join(dest, "csi-cephfsattacher-rbac.yaml"), base='.')
+        add_addon(repo, "deploy/cephfs/kubernetes/csi-nodeplugin-rbac.yaml", 
+            os.path.join(dest, "csi-cephfsnodeplugin-rbac.yaml"), base='.')
+        add_addon(repo, "deploy/cephfs/kubernetes/csi-provisioner-rbac.yaml", 
+            os.path.join(dest, "csi-cephfsprovisioner-rbac.yaml"), base='.')
 
     with cloud_provider_openstack_repo() as repo:
         log.info("Copying openstack tempates to " + dest)

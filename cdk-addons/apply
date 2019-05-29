@@ -94,6 +94,15 @@ def render_templates():
         render_template("csi-rbdplugin-provisioner.yaml", ceph_context)
         render_template("csi-rbdplugin-attacher.yaml", ceph_context)
 
+        # cephfs secrets - hardcode user/admin ids
+        ceph_context['user_id'] = base64.b64encode('kubernetes'.encode('utf-8')).decode()
+        ceph_context['admin_id']  = base64.b64encode('admin'.encode('utf-8')).decode()
+
+        render_template("cephfs-secret.yaml", ceph_context)
+        render_template("csi-cephfsplugin.yaml", ceph_context)
+        render_template("csi-cephfsplugin-provisioner.yaml", ceph_context)
+        render_template("csi-cephfsplugin-attacher.yaml", ceph_context)
+
         ext4_context = ceph_context.copy()
         if default_storage == 'ceph-ext4':
             ext4_context['default'] = True
@@ -106,8 +115,7 @@ def render_templates():
                         render_filename="ceph-ext4-storageclass.yaml")
 
         xfs_context = ceph_context.copy()
-        if (default_storage == 'ceph-xfs' or
-                default_storage == 'auto'):
+        if default_storage == 'ceph-xfs':
             xfs_context['default'] = True
         else:
             xfs_context['default'] = False
@@ -116,11 +124,28 @@ def render_templates():
         xfs_context['sc_name'] = 'ceph-xfs'
         render_template("ceph-storageclass.yaml", xfs_context,
                         render_filename="ceph-xfs-storageclass.yaml")
-        # RBAC
+
+        # cephfs storageclass
+        cephfs_context = ceph_context.copy()
+        if (default_storage == 'cephfs' or default_storage == 'auto'):
+            cephfs_context['default'] = True
+        else:
+            cephfs_context['default'] = False
+        cephfs_context['pool_name'] = 'ceph-fs_data'
+        render_template("cephfs-storageclass.yaml", cephfs_context,
+                        render_filename="cephfs-storageclass.yaml")
+        
+        # rbd rbac
         render_template("csi-attacher-rbac.yaml", ceph_context)
         render_template("csi-nodeplugin-rbac.yaml", ceph_context)
         render_template("csi-provisioner-rbac.yaml", ceph_context)
+
+        # cephfs rbac
+        render_template("csi-cephfsattacher-rbac.yaml", ceph_context)
+        render_template("csi-cephfsnodeplugin-rbac.yaml", ceph_context)
+        render_template("csi-cephfsprovisioner-rbac.yaml", ceph_context)
         rendered = True
+        
     if get_snap_config("enable-keystone", required=False) == "true":
         keystone_context = context.copy()
         cert = get_snap_config("keystone-cert-file", required=True)

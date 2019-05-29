@@ -1,4 +1,4 @@
-name: cdk-addons
+name: cdk-addon-mod
 version: 'KUBE_VERSION'
 architectures: ['KUBE_ARCH']
 summary: Addons for the Canonical Distribution of Kubernetes
