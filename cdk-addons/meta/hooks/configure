@@ -9,6 +9,6 @@ for key in arch kubeconfig dns-domain enable-dashboard enable-kube-dns \
 		ceph-admin-key ceph-kubernetes-key ceph-mon-hosts ceph-pool-name \
 		default-storage enable-ceph enable-keystone keystone-server-url \
 		keystone-cert-file keystone-key-file keystone-server-ca \
-		dashboard-auth; do
+		dashboard-auth enable-lb lb-start-ip lb-end-ip; do
 	snapctl get "$key" > "$SNAP_DATA/config/$key"
 done
