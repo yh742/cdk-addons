@@ -85,6 +85,9 @@ cloud_provider_openstack_repo = repo_cloner(
     url="https://github.com/kubernetes/cloud-provider-openstack.git"
 )
 
+metal_lb_repo = repo_cloner(
+    url="https://github.com/danderson/metallb.git"
+)
 
 def add_addon(repo, source, dest, required=True, base='cluster/addons'):
     """ Add an addon template from the given repo and source.
@@ -275,6 +278,13 @@ def patch_dashboard(repo, file):
     with open(source, "w") as f:
         f.write(content)
 
+def patch_metal_lb_config(repo, file):
+    source = os.path.join(repo, file)
+    with open(source, "r") as f:
+        content = f.read()
+    content = content.replace("192.168.1.240/28", "{{ lb-start-ip }}-{{ lb-end-ip }}")
+    with open(source,"w") as f:
+        f.write(content)
 
 def get_addon_templates():
     """ Get addon templates. This will clone the kubernetes repo from upstream
@@ -364,6 +374,13 @@ def get_addon_templates():
         add_addon(repo, "examples/webhook/keystone-deployment.yaml", dest, base='.')
         add_addon(repo, "examples/webhook/keystone-service.yaml", dest, base='.')
         add_addon(repo, "examples/webhook/keystone-rbac.yaml", dest, base='.')
+    
+    with metal_lb_repo() as repo:
+        log.info("Copying metal lb templates to " + dest)
+        patch_metal_lb_config(repo, "manifests/example-layer2-config.yaml")
+
+        add_addon(repo, "manifests/metallb.yaml", dest, base='.')
+        add_addon(repo, "manifests/example-layer2-config.yaml", os.path.join(dest, "layer2-config.yaml"), base='.')
 
 
 def parse_args():
